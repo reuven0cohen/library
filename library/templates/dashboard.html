@@ -8,9 +8,9 @@
 </head>
 <body>
     <header class="topbar">
-        <div>
-            <p class="eyebrow">LIBRARY OPERATIONS</p>
-            <h1>Control panel</h1>
+        <div class="topbar-identity">
+            <img class="topbar-image" src="{{ url_for('static', filename='library_image.jpg') }}" alt="Reader browsing the library shelves">
+            <h1>My Library</h1>
         </div>
         <div class="topbar-actions">
             <span class="user-badge">{{ session.get('username') }}</span>
@@ -155,10 +155,20 @@
         document.querySelectorAll('[data-toggle]').forEach((button) => {
             button.addEventListener('click', () => {
                 const panel = document.getElementById(button.dataset.toggle);
-                if (panel) {
-                    panel.classList.toggle('is-open');
-                    button.classList.toggle('is-active', panel.classList.contains('is-open'));
-                }
+                if (!panel) return;
+                panel.classList.toggle('is-open');
+                const isOpen = panel.classList.contains('is-open');
+                button.classList.toggle('is-active', isOpen);
+                document.querySelectorAll('button').forEach((b) => {
+                    if (b === button || panel.contains(b)) return;
+                    b.disabled = isOpen;
+                });
+            });
+        });
+
+        document.querySelectorAll('form').forEach((form) => {
+            form.addEventListener('submit', () => {
+                document.querySelectorAll('button').forEach((b) => { b.disabled = true; });
             });
         });
     </script>

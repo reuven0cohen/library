@@ -1,0 +1,59 @@
+@startuml Library_Sequence_Borrow_Ordered
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Sequence Diagram - Borrow an Ordered Book
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Copy
+entity Borrowing
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : View pending orders and available copies
+UI -> Library : get_available_copies_for_ordered_book(book_id)
+activate Library
+Library -> DB : Load available copies for book
+DB --> Library : List of available copies
+deactivate Library
+Library --> UI : Display available copies
+UI --> Reader : Show copies for ordered book
+
+Reader -> UI : Select copy and initiate borrow
+UI -> Library : borrow(reader_id, copy_id, order_id)
+activate Library
+Library -> DB : Load Reader, Copy, Book, and Order
+DB --> Library : Current records
+Library -> Borrowing : Check active borrowings
+Borrowing -> DB : Count active borrowings
+DB --> Library : Active borrowing count
+
+alt Reader inactive
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Four active borrowings reached
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Copy not reserved for order
+    Library --> UI : ValidationError
+    UI --> Reader : Copy is not for your order
+else Valid ordered book borrowing
+    Library -> Copy : Set status to BORROWED
+    Library -> Book : Decrement available_copies
+    Library -> Borrowing : Create active borrowing with order_id
+    Borrowing -> DB : INSERT active borrowing linked to order
+    DB --> Borrowing : Borrowing created
+    Library -> Order : Set status to FULFILLED
+    Library -> Order : Set fulfilled_date to now
+    Library -> Order : Clear reservation_expiry_date
+    Order -> DB : UPDATE order status and dates
+    DB --> Library : Transaction committed
+    Library --> UI : Borrowing created and order fulfilled
+    deactivate Library
+    UI --> Reader : Success - book borrowed, order closed
+end
+@enduml

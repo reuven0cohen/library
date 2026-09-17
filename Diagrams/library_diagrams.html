@@ -212,6 +212,12 @@ stop
 skinparam backgroundColor #fafafa
 skinparam classBackgroundColor #e3f2fd
 skinparam classBorderColor #1976d2
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classAttributeFontSize 11
+skinparam nodesep 25
+skinparam ranksep 30
+skinparam linetype ortho
 
 class Reader {
   - id: int
@@ -305,6 +311,326 @@ Borrowing "0..1" --> "1" Order
 BorrowingService --> Borrowing
 OrderService --> Order
 
+Copy -[hidden]right- Book
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Diagram -->
+    <div class="diagram-section">
+      <div class="diagram-header">5. Database Diagram</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="database">
+@startuml Library_Database
+hide methods
+hide stereotypes
+skinparam backgroundColor #fafafa
+skinparam linetype ortho
+skinparam defaultFontSize 12
+skinparam classBackgroundColor #ffffff
+skinparam classBorderColor #40504b
+skinparam classArrowColor #40504b
+
+entity "readers" as readers {
+    * id : INTEGER <<PK>>
+    --
+    name : TEXT
+    email : TEXT
+    phone : TEXT
+    registration_date : TEXT
+    status : TEXT
+}
+
+entity "books" as books {
+    * id : INTEGER <<PK>>
+    --
+    title : TEXT
+    author : TEXT
+    isbn : TEXT <<UNIQUE>>
+    description : TEXT
+    publication_date : TEXT
+    total_copies : INTEGER
+    available_copies : INTEGER
+}
+
+entity "copies" as copies {
+    * id : INTEGER <<PK>>
+    --
+    book_id : INTEGER <<FK>>
+    status : TEXT
+    location : TEXT
+    acquisition_date : TEXT
+}
+
+entity "borrowings" as borrowings {
+    * id : INTEGER <<PK>>
+    --
+    reader_id : INTEGER <<FK>>
+    copy_id : INTEGER <<FK>>
+    order_id : INTEGER
+    borrow_date : TEXT
+    due_date : TEXT
+    return_date : TEXT
+    status : TEXT
+}
+
+entity "orders" as orders {
+    * id : INTEGER <<PK>>
+    --
+    reader_id : INTEGER <<FK>>
+    book_id : INTEGER <<FK>>
+    order_date : TEXT
+    status : TEXT
+    fulfilled_date : TEXT
+    cancellation_date : TEXT
+    reserved_copy_id : INTEGER <<FK>>
+    reservation_expiry_date : TEXT
+}
+
+readers ||--o{ borrowings : "reader_id"
+readers ||--o{ orders : "reader_id"
+books ||--o{ copies : "book_id"
+books ||--o{ orders : "book_id"
+copies ||--o{ borrowings : "copy_id"
+copies ||--o| orders : "reserved_copy_id"
+
+note bottom of orders
+  status: pending | fulfilled | cancelled
+  reservation expiry: 3 days
+end note
+
+note bottom of borrowings
+  status: active | returned
+end note
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequence Diagram - Order -->
+    <div class="diagram-section">
+      <div class="diagram-header">6. Sequence Diagram - Order a Book</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="sequence_order">
+@startuml Library_Sequence_Order
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : Select book and request order
+UI -> Library : create_order(reader_id, book_id)
+activate Library
+Library -> DB : Load Reader and Book
+DB --> Library : Reader and book records
+
+alt Reader is inactive
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Book does not exist
+    Library --> UI : NotFoundError
+    UI --> Reader : Display error
+else Pending order already exists
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Valid order
+    Library -> Book : Verify book exists
+    Library -> Order : Create pending order
+    Order -> DB : INSERT pending order
+    DB --> Order : New order id
+    Order --> Library : Order
+    deactivate Library
+    Library --> UI : Order created
+    UI --> Reader : Display success
+end
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequence Diagram - Borrow -->
+    <div class="diagram-section">
+      <div class="diagram-header">7. Sequence Diagram - Borrow a Book</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="sequence_borrow">
+@startuml Library_Sequence_Borrow
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Copy
+entity Borrowing
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : Select available copy
+UI -> Library : borrow(reader_id, copy_id, order_id?)
+activate Library
+Library -> DB : Load Reader, Copy, and Book
+DB --> Library : Current records
+Library -> Borrowing : Check active borrowings
+Borrowing -> DB : Count active borrowings
+DB --> Library : Active borrowing count
+
+alt Reader inactive
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Four active borrowings reached
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Copy unavailable
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Valid borrowing
+    Library -> Copy : Set status to BORROWED
+    Library -> Book : Decrement available_copies
+    Library -> Borrowing : Create active borrowing
+    Borrowing -> DB : INSERT active borrowing
+    opt Borrowing fulfils an order
+        Library -> Order : Set status to FULFILLED
+        Order -> DB : Clear reservation fields
+    end
+    DB --> Library : Transaction committed
+    Library --> UI : Borrowing created
+    deactivate Library
+    UI --> Reader : Display success
+end
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequence Diagram - Return -->
+    <div class="diagram-section">
+      <div class="diagram-header">8. Sequence Diagram - Return a Book</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="sequence_return">
+@startuml Library_Sequence_Return
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Copy
+entity Borrowing
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : Return a book copy
+UI -> Library : return_book(reader_id, copy_id)
+activate Library
+Library -> DB : Load Borrowing, Copy, Book, and Orders
+DB --> Library : Current records
+Library -> Borrowing : Find active borrowing
+
+alt Borrowing not found
+    Library --> UI : NotFoundError
+    UI --> Reader : Display error
+else Borrowing found
+    Library -> DB : Check for pending orders for this book
+    DB --> Library : List of pending orders
+
+    alt Orders exist
+        Library -> Copy : Set status to RESERVED
+        Library -> Order : Link copy as reserved
+        Library -> Order : Set reservation_expiry_date = now + 3 days
+        Order -> DB : UPDATE order with reservation
+    else No orders
+        Library -> Copy : Set status to AVAILABLE
+        Library -> Book : Increment available_copies
+        Copy -> DB : UPDATE copy status
+    end
+
+    Library -> Borrowing : Set status to RETURNED
+    Library -> Borrowing : Set return_date to now
+    Borrowing -> DB : UPDATE borrowing record
+    DB --> Library : Transaction committed
+    Library --> UI : Return confirmed
+    deactivate Library
+    UI --> Reader : Display success
+end
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequence Diagram - Borrow Ordered Book -->
+    <div class="diagram-section">
+      <div class="diagram-header">9. Sequence Diagram - Borrow an Ordered Book</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="sequence_borrow_ordered">
+@startuml Library_Sequence_Borrow_Ordered
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Copy
+entity Borrowing
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : View pending orders and available copies
+UI -> Library : get_available_copies_for_ordered_book(book_id)
+activate Library
+Library -> DB : Load available copies for book
+DB --> Library : List of available copies
+deactivate Library
+Library --> UI : Display available copies
+UI --> Reader : Show copies for ordered book
+
+Reader -> UI : Select copy and initiate borrow
+UI -> Library : borrow(reader_id, copy_id, order_id)
+activate Library
+Library -> DB : Load Reader, Copy, Book, and Order
+DB --> Library : Current records
+Library -> Borrowing : Check active borrowings
+Borrowing -> DB : Count active borrowings
+DB --> Library : Active borrowing count
+
+alt Reader inactive
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Four active borrowings reached
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Copy not reserved for order
+    Library --> UI : ValidationError
+    UI --> Reader : Copy is not for your order
+else Valid ordered book borrowing
+    Library -> Copy : Set status to BORROWED
+    Library -> Book : Decrement available_copies
+    Library -> Borrowing : Create active borrowing with order_id
+    Borrowing -> DB : INSERT active borrowing linked to order
+    DB --> Borrowing : Borrowing created
+    Library -> Order : Set status to FULFILLED
+    Library -> Order : Set fulfilled_date to now
+    Library -> Order : Clear reservation_expiry_date
+    Order -> DB : UPDATE order status and dates
+    DB --> Library : Transaction committed
+    Library --> UI : Borrowing created and order fulfilled
+    deactivate Library
+    UI --> Reader : Success - book borrowed, order closed
+end
 @enduml
         </div>
       </div>
@@ -312,7 +638,7 @@ OrderService --> Order
 
     <!-- Architecture Diagram -->
     <div class="diagram-section">
-      <div class="diagram-header">5. Architecture Diagram</div>
+      <div class="diagram-header">10. Architecture Diagram</div>
       <div class="diagram-content">
         <div class="plantUml" id="architecture">
 @startuml
@@ -380,10 +706,10 @@ API --> [Order Service]
 
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/plantuml-encoder/1.4.0/plantuml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
   <script>
     function renderPlantUML() {
-      const diagramIds = ['usecase', 'activity', 'activity2', 'classdiagram', 'architecture'];
+      const diagramIds = ['usecase', 'activity', 'activity2', 'classdiagram', 'database', 'sequence_order', 'sequence_borrow', 'sequence_return', 'sequence_borrow_ordered', 'architecture'];
 
       diagramIds.forEach(id => {
         const element = document.getElementById(id);

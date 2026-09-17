@@ -6,6 +6,11 @@ skinparam classBorderColor #40504b
 skinparam classArrowColor #40504b
 skinparam packageStyle rectangle
 skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classAttributeFontSize 11
+skinparam nodesep 20
+skinparam ranksep 25
 
 package "Domain Entities" {
     class Reader <<dataclass>> {
@@ -125,6 +130,9 @@ Reader --> ReaderStatus
 Copy --> CopyStatus
 Borrowing --> BorrowingStatus
 Order --> OrderStatus
+
+Book -[hidden]-> Order
+Order -[hidden]-> Copy
 
 BorrowingService --> Library
 OrderService --> Library
