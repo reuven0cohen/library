@@ -1,0 +1,29 @@
+@startuml Library_BorrowingWorkflow
+skinparam backgroundColor #fafafa
+skinparam ActivityBackgroundColor #e1f5ff
+
+start
+:Reader requests to borrow book;
+:System checks reader's active borrowings;
+if (Borrowings < 4?) then (Yes)
+  :Check copy availability;
+  if (Copy available?) then (Yes)
+    :Create borrowing record;
+    :Update copy status to borrowed;
+    :Decrement available copies;
+    if (Borrow from order?) then (Yes)
+      :Close the order;
+    else (No)
+    endif
+    :Confirm to reader;
+    stop
+  else (No)
+    :Suggest ordering;
+    stop
+  endif
+else (No)
+  :Show error - max borrowings reached;
+  stop
+endif
+
+@enduml

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in | Library Control Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="login-page">
+    <main class="login-shell">
+        <section class="login-panel">
+            <p class="eyebrow">LIBRARY OPERATIONS</p>
+            <h1>Welcome back.</h1>
+            <p class="login-copy">Sign in to manage books, readers, loans, and reservations.</p>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <form class="form login-form" method="post">
+                <label>Username<input name="username" autocomplete="username" required autofocus></label>
+                <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+                <button class="button" type="submit">Sign in</button>
+            </form>
+            <p class="login-hint">Demo account: <strong>admin</strong> / <strong>library123</strong></p>
+            <p class="login-hint">New here? <a href="{{ url_for('register') }}">Create an account</a></p>
+        </section>
+    </main>
+</body>
+</html>

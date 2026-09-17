@@ -1,0 +1,61 @@
+@startuml Library_UseCase
+left to right direction
+skinparam backgroundColor #fafafa
+skinparam actorStyle awesome
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+actor "Reader" as Reader
+actor "Librarian" as Librarian
+
+rectangle "Library Management System" {
+  rectangle "User Management" {
+    usecase "Register Reader" as UC_Register
+    usecase "Manage Readers" as UC_ManageReaders
+  }
+
+  rectangle "Catalogue and Inventory" {
+    usecase "View Available Books" as UC_ViewBooks
+    usecase "Manage Books" as UC_ManageBooks
+    usecase "Manage Copies" as UC_ManageCopies
+  }
+
+  rectangle "Borrowing and Returns" {
+    usecase "Borrow Book" as UC_Borrow
+    usecase "Return Book" as UC_Return
+    usecase "Check Borrowing Limit" as UC_CheckLimit
+    usecase "Update Copy Availability" as UC_UpdateAvailability
+  }
+
+  rectangle "Orders and Reservations" {
+    usecase "Order Book" as UC_Order
+    usecase "Reserve Returned Copy" as UC_Reserve
+    usecase "Fulfil Order" as UC_Fulfil
+    usecase "Cancel Order" as UC_Cancel
+    usecase "Process Expired Reservations" as UC_Expire
+  }
+}
+
+Reader --> UC_Register
+Reader --> UC_ViewBooks
+Reader --> UC_Borrow
+Reader --> UC_Return
+Reader --> UC_Order
+
+Librarian --> UC_ManageReaders
+Librarian --> UC_ManageBooks
+Librarian --> UC_ManageCopies
+Librarian --> UC_Borrow
+Librarian --> UC_Return
+Librarian --> UC_Expire
+
+UC_Borrow ..> UC_CheckLimit : <<include>>
+UC_Borrow ..> UC_UpdateAvailability : <<include>>
+UC_Borrow ..> UC_Fulfil : <<include>>
+UC_Return ..> UC_UpdateAvailability : <<include>>
+UC_Return ..> UC_Reserve : <<extend>>
+UC_Order ..> UC_ViewBooks : <<include>>
+UC_Expire ..> UC_Cancel : <<include>>
+
+@enduml

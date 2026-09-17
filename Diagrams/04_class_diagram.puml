@@ -1,0 +1,140 @@
+@startuml Library_Domain_ClassDiagram
+left to right direction
+skinparam backgroundColor #fafafa
+skinparam classBackgroundColor #ffffff
+skinparam classBorderColor #40504b
+skinparam classArrowColor #40504b
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+package "Domain Entities" {
+    class Reader <<dataclass>> {
+        + id: int
+        + name: str
+        + email: Optional[str]
+        + phone: Optional[str]
+        + registration_date: datetime
+        + status: ReaderStatus
+    }
+
+    class Book <<dataclass>> {
+        + id: int
+        + title: str
+        + author: Optional[str]
+        + isbn: Optional[str]
+        + description: Optional[str]
+        + publication_date: Optional[date]
+        + total_copies: int
+        + available_copies: int
+    }
+
+    class Copy <<dataclass>> {
+        + id: int
+        + book_id: int
+        + status: CopyStatus
+        + location: Optional[str]
+        + acquisition_date: date
+    }
+
+    class Borrowing <<dataclass>> {
+        + id: int
+        + reader_id: int
+        + copy_id: int
+        + order_id: Optional[int]
+        + borrow_date: datetime
+        + due_date: Optional[date]
+        + return_date: Optional[datetime]
+        + status: BorrowingStatus
+    }
+
+    class Order <<dataclass>> {
+        + id: int
+        + reader_id: int
+        + book_id: int
+        + order_date: datetime
+        + status: OrderStatus
+        + fulfilled_date: Optional[datetime]
+        + cancellation_date: Optional[datetime]
+        + reserved_copy_id: Optional[int]
+        + reservation_expiry_date: Optional[datetime]
+        --
+        + is_expired(now: Optional[datetime]): bool
+    }
+}
+
+package "Domain Services" {
+    class BorrowingService {
+        - library: Library
+        --
+        + borrow_book(reader, copy, order): Borrowing
+        + return_book(borrowing): Borrowing
+    }
+
+    class OrderService {
+        - library: Library
+        --
+        + create_order(reader, book): Order
+        + cancel_expired_orders(): list[Order]
+    }
+
+    interface Library {
+        + borrow(reader_id, copy_id, order_id): Borrowing
+        + return_book(borrowing_id): Borrowing
+        + create_order(reader_id, book_id): Order
+        + process_expired_reservations(): list[Order]
+    }
+}
+
+package "Value Types and Errors" {
+    enum ReaderStatus {
+        ACTIVE
+        INACTIVE
+    }
+
+    enum CopyStatus {
+        AVAILABLE
+        BORROWED
+        RESERVED
+    }
+
+    enum BorrowingStatus {
+        ACTIVE
+        RETURNED
+    }
+
+    enum OrderStatus {
+        PENDING
+        FULFILLED
+        CANCELLED
+    }
+
+    class LibraryError <<exception>>
+    class NotFoundError <<exception>>
+    class ValidationError <<exception>>
+}
+
+Reader "1" -- "0..*" Borrowing : reader_id
+Reader "1" -- "0..*" Order : reader_id
+Book "1" -- "0..*" Copy : book_id
+Book "1" -- "0..*" Order : book_id
+Copy "1" -- "0..*" Borrowing : copy_id
+Order "0..1" -- "0..1" Copy : reserved_copy_id
+Borrowing "0..1" -- "1" Order : order_id
+
+Reader --> ReaderStatus
+Copy --> CopyStatus
+Borrowing --> BorrowingStatus
+Order --> OrderStatus
+
+BorrowingService --> Library
+OrderService --> Library
+NotFoundError --|> LibraryError
+ValidationError --|> LibraryError
+
+note bottom of Library
+  Implemented by sqlite_library.Library.
+  Business rules use MAX_ACTIVE_BORROWINGS = 4
+  and RESERVATION_DAYS = 3.
+end note
+
+@enduml

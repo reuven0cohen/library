@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Library System Diagrams</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    .diagram-section {
+      background: white;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .diagram-header {
+      background: #2c3e50;
+      color: white;
+      padding: 20px;
+      font-size: 1.5em;
+      font-weight: 600;
+    }
+
+    .diagram-content {
+      padding: 20px;
+      overflow-x: auto;
+      background: #fafafa;
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .plantUml {
+      display: none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1e1e1e;
+      }
+
+      .diagram-section {
+        background: #2d2d2d;
+      }
+
+      .diagram-header {
+        background: #1a1a1a;
+      }
+
+      .diagram-content {
+        background: #252525;
+      }
+
+      h1 {
+        color: #e0e0e0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Library Management System - UML Diagrams</h1>
+
+    <!-- Use Case Diagram -->
+    <div class="diagram-section">
+      <div class="diagram-header">1. Use Case Diagram</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="usecase">
+@startuml Library_UseCase_TwoColumns
+skinparam backgroundColor #fafafa
+skinparam actorStyle awesome
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam padding 20
+skinparam margin 10
+skinparam linetype ortho
+left to right direction
+
+actor Reader
+actor Librarian
+
+package "Library Management System" {
+  usecase "Borrow Book" as UC1
+  usecase "Return Book" as UC2
+  usecase "Order Book" as UC3
+  usecase "View Available Books" as UC4
+
+  usecase "Manage Books" as UC5
+  usecase "Manage Readers" as UC6
+  usecase "Process Expired Orders" as UC7
+  usecase "Check Borrowing Limits" as UC8
+  usecase "Reserve Copy" as UC9
+  usecase "Close Order" as UC10
+}
+
+Reader --> UC1
+Reader --> UC2
+Reader --> UC3
+Reader --> UC4
+
+Librarian --> UC5
+Librarian --> UC6
+Librarian --> UC2
+
+UC1 ..> UC8 : include
+UC1 ..> UC10 : include
+UC2 ..> UC9 : include
+UC7 ..> UC2 : include
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Diagram - Borrow -->
+    <div class="diagram-section">
+      <div class="diagram-header">2. Activity Diagram - Borrowing Workflow</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="activity">
+@startuml
+skinparam backgroundColor #fafafa
+skinparam ActivityBackgroundColor #e1f5ff
+
+start
+:Reader requests to borrow book;
+:System checks reader's active borrowings;
+if (Borrowings < 4?) then (Yes)
+  :Check copy availability;
+  if (Copy available?) then (Yes)
+    :Create borrowing record;
+    :Update copy status to borrowed;
+    :Decrement available copies;
+    if (Borrow from order?) then (Yes)
+      :Close the order;
+    else (No)
+    endif
+    :Confirm to reader;
+    stop
+  else (No)
+    :Suggest ordering;
+    stop
+  endif
+else (No)
+  :Show error - max borrowings reached;
+  stop
+endif
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Diagram - Return -->
+    <div class="diagram-section">
+      <div class="diagram-header">3. Activity Diagram - Return Workflow</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="activity2">
+@startuml
+skinparam backgroundColor #fafafa
+skinparam ActivityBackgroundColor #f3e5f5
+
+start
+:Reader returns book copy;
+:Find borrowing record;
+:Check for pending orders;
+if (Order exists?) then (Yes)
+  :Reserve copy for orderer;
+  :Set reservation expiry 3 days;
+  :Notify orderer;
+else (No)
+  :Mark copy as available;
+  :Increment available copies;
+endif
+:Update borrowing status to returned;
+:Confirm to reader;
+stop
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Class Diagram -->
+    <div class="diagram-section">
+      <div class="diagram-header">4. Class Diagram</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="classdiagram">
+@startuml
+skinparam backgroundColor #fafafa
+skinparam classBackgroundColor #e3f2fd
+skinparam classBorderColor #1976d2
+
+class Reader {
+  - id: int
+  - name: string
+  - email: string
+  - phone: string
+  - registrationDate: datetime
+  - status: string
+  --
+  + borrow(copy): Borrowing
+  + returnBook(borrowing): void
+  + orderBook(book): Order
+  + getActiveBorrowings(): List
+  + getOrders(): List
+}
+
+class Book {
+  - id: int
+  - title: string
+  - author: string
+  - isbn: string
+  - description: string
+  - publicationDate: date
+  - totalCopies: int
+  - availableCopies: int
+  --
+  + addCopy(): Copy
+  + getCopies(): List
+  + getAvailableCopies(): List
+}
+
+class Copy {
+  - id: int
+  - status: enum
+  - location: string
+  - acquisitionDate: date
+  --
+  + markBorrowed(): void
+  + markAvailable(): void
+  + markReserved(): void
+}
+
+class Borrowing {
+  - id: int
+  - borrowDate: datetime
+  - dueDate: date
+  - returnDate: datetime
+  - status: enum
+  --
+  + returnCopy(): void
+  + extend(): void
+}
+
+class Order {
+  - id: int
+  - orderDate: datetime
+  - status: enum
+  - fulfilledDate: datetime
+  - cancellationDate: datetime
+  - reservationExpiryDate: datetime
+  --
+  + fulfill(): void
+  + cancel(): void
+  + isExpired(): boolean
+}
+
+class OrderService {
+  + createOrder(reader, book): Order
+  + fulfillOrder(order): void
+  + cancelExpiredOrders(): void
+}
+
+class BorrowingService {
+  + borrowBook(reader, copy): Borrowing
+  + returnBook(borrowing): void
+  + checkBorrowingLimit(reader): boolean
+  + closeFulfilledOrder(borrowing): void
+}
+
+Reader "1" --> "0..*" Borrowing
+Reader "1" --> "0..*" Order
+Book "1" --> "1..*" Copy
+Copy "1" --> "0..*" Borrowing
+Order "1" --> "1" Book
+Order "1" --> "0..1" Copy
+
+Borrowing "1" --> "1" Copy
+Borrowing "1" --> "1" Reader
+Borrowing "0..1" --> "1" Order
+
+BorrowingService --> Borrowing
+OrderService --> Order
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+    <!-- Architecture Diagram -->
+    <div class="diagram-section">
+      <div class="diagram-header">5. Architecture Diagram</div>
+      <div class="diagram-content">
+        <div class="plantUml" id="architecture">
+@startuml
+skinparam backgroundColor #fafafa
+skinparam componentStyle uml2
+
+package "Client Layer" {
+  [Reader Web App] as ReaderUI
+  [Librarian Web App] as AdminUI
+  [Mobile App] as MobileApp
+}
+
+package "API Layer" {
+  [REST API] as API
+}
+
+package "Business Logic Layer" {
+  [Reader Service]
+  [Book Service]
+  [Borrowing Service]
+  [Order Service]
+  [Validation Rules]
+}
+
+package "Data Access Layer" {
+  [Repository Pattern]
+}
+
+package "Database Layer" {
+  [MySQL/PostgreSQL] as DB
+}
+
+package "Background Jobs" {
+  [Order Expiry Job]
+  [Notification Service]
+}
+
+ReaderUI --> API
+AdminUI --> API
+MobileApp --> API
+
+API --> [Reader Service]
+API --> [Book Service]
+API --> [Borrowing Service]
+API --> [Order Service]
+
+[Reader Service] --> [Repository Pattern]
+[Book Service] --> [Repository Pattern]
+[Borrowing Service] --> [Repository Pattern]
+[Order Service] --> [Repository Pattern]
+
+[Validation Rules] -.-> [Borrowing Service]
+[Validation Rules] -.-> [Order Service]
+
+[Repository Pattern] --> DB
+
+[Order Expiry Job] --> [Order Service]
+[Order Service] --> [Notification Service]
+[Notification Service] --> ReaderUI
+
+@enduml
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plantuml-encoder/1.4.0/plantuml.min.js"></script>
+  <script>
+    function renderPlantUML() {
+      const diagramIds = ['usecase', 'activity', 'activity2', 'classdiagram', 'architecture'];
+
+      diagramIds.forEach(id => {
+        const element = document.getElementById(id);
+        const diagram = element.innerText;
+
+        try {
+          const encoded = plantumlEncoder.encode(diagram);
+          const url = `https://www.plantuml.com/plantuml/svg/${encoded}`;
+
+          const img = document.createElement('img');
+          img.src = url;
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.borderRadius = '4px';
+
+          element.style.display = 'none';
+          element.parentElement.appendChild(img);
+        } catch (err) {
+          console.error(`Error rendering diagram ${id}:`, err);
+          element.innerHTML = `<p style="color: red;">Error rendering diagram</p>`;
+        }
+      });
+    }
+
+    if (typeof plantumlEncoder !== 'undefined') {
+      renderPlantUML();
+    } else {
+      setTimeout(renderPlantUML, 1000);
+    }
+  </script>
+</body>
+</html>

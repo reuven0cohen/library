@@ -1,0 +1,21 @@
+@startuml Library_ReturnWorkflow
+skinparam backgroundColor #fafafa
+skinparam ActivityBackgroundColor #f3e5f5
+
+start
+:Reader returns book copy;
+:Find borrowing record;
+:Check for pending orders;
+if (Order exists?) then (Yes)
+  :Reserve copy for orderer;
+  :Set reservation expiry 3 days;
+  :Notify orderer;
+else (No)
+  :Mark copy as available;
+  :Increment available copies;
+endif
+:Update borrowing status to returned;
+:Confirm to reader;
+stop
+
+@enduml

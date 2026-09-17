@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Library Control Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">LIBRARY OPERATIONS</p>
+            <h1>Control panel</h1>
+        </div>
+        <div class="topbar-actions">
+            <span class="user-badge">{{ session.get('username') }}</span>
+            <nav class="menu-actions" aria-label="Library actions">
+                <button class="menu-button" type="button" data-toggle="catalogue-panel">Books</button>
+                <button class="menu-button" type="button" data-toggle="add-book-panel">Add book</button>
+                <button class="menu-button" type="button" data-toggle="add-reader-panel">Add reader</button>
+                <button class="menu-button" type="button" data-toggle="order-book-panel">Order a book</button>
+                <button class="menu-button" type="button" data-toggle="return-book-panel">Return a book</button>
+                <button class="menu-button" type="button" data-toggle="borrow-panel">Borrow a copy</button>
+                <button class="menu-button" type="button" data-toggle="reader-list-panel">Readers</button>
+                <button class="menu-button" type="button" data-toggle="orders-panel">Orders</button>
+            </nav>
+            <form action="{{ url_for('expire_reservations') }}" method="post">
+                <button class="button button-dark" type="submit">Process expired reservations</button>
+            </form>
+            <form action="{{ url_for('logout') }}" method="post">
+                <button class="button button-quiet" type="submit">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="shell">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="alerts">
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <section class="metrics dashboard-panel" id="dashboard-metrics">
+            <div class="metric"><span>Titles</span><strong>{{ books|length }}</strong></div>
+            <div class="metric"><span>Readers</span><strong>{{ readers|length }}</strong></div>
+            <div class="metric"><span>Active loans</span><strong>{{ active_borrowings|length }}</strong></div>
+            <div class="metric accent"><span>Pending orders</span><strong>{{ pending_orders|length }}</strong></div>
+        </section>
+
+        <section class="workspace-grid">
+            <div class="panel panel-wide dashboard-panel" id="catalogue-panel">
+                <div class="panel-heading"><div><p class="eyebrow">CATALOGUE</p><h2>Books and copies</h2></div></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Title</th><th>Author</th><th>Inventory</th><th>Status</th></tr></thead>
+                        <tbody>
+                        {% for book in books %}
+                            <tr>
+                                <td><strong>{{ book.title }}</strong><small>{{ book.isbn or 'No ISBN' }}</small></td>
+                                <td>{{ book.author or 'Unknown author' }}</td>
+                                <td>{{ book.available_copies }} / {{ book.total_copies }} available</td>
+                                <td><span class="tag {{ 'tag-good' if book.available_copies else 'tag-warn' }}">{{ 'Available' if book.available_copies else 'Waitlist' }}</span></td>
+                            </tr>
+                        {% else %}<tr><td colspan="4" class="empty">No books in the catalogue.</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel dashboard-panel" id="add-book-panel">
+                <div class="panel-heading"><div><p class="eyebrow">ADD TITLE</p><h2>New book</h2></div></div>
+                <form class="form" action="{{ url_for('add_book') }}" method="post">
+                    <label>Title<input name="title" required></label>
+                    <label>Author<input name="author"></label>
+                    <label>ISBN<input name="isbn"></label>
+                    <label>Copies<input name="copies" type="number" min="0" value="1"></label>
+                    <button class="button" type="submit">Add book</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="workspace-grid">
+            <div class="panel panel-wide dashboard-panel" id="return-book-panel">
+                <div class="panel-heading"><div><p class="eyebrow">CIRCULATION</p><h2>Active loans</h2></div></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Reader</th><th>Book</th><th>Borrowed</th><th></th></tr></thead>
+                        <tbody>
+                        {% for item in active_borrowings %}
+                            <tr><td>{{ reader_for(item.reader_id).name }}</td><td>{{ book_for_copy(library.copies[item.copy_id]).title }}</td><td>{{ item.borrow_date.strftime('%d %b %Y') }}</td><td><form action="{{ url_for('return_book', borrowing_id=item.id) }}" method="post"><button class="button button-small" type="submit">Return</button></form></td></tr>
+                        {% else %}<tr><td colspan="4" class="empty">No active loans.</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="panel dashboard-panel" id="borrow-panel">
+                <div class="panel-heading"><div><p class="eyebrow">CHECKOUT</p><h2>Borrow a copy</h2></div></div>
+                <form class="form" action="{{ url_for('borrow') }}" method="post">
+                    <label>Reader<select name="reader_id" required>{% for reader in readers %}<option value="{{ reader.id }}">{{ reader.name }}</option>{% endfor %}</select></label>
+                    <label>Available copy<select name="copy_id" required>{% for copy in copies if copy.status.value == 'available' %}<option value="{{ copy.id }}">{{ book_for_copy(copy).title }} · {{ copy.location or 'Unassigned' }}</option>{% endfor %}</select></label>
+                    <button class="button" type="submit">Borrow copy</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="workspace-grid">
+            <div class="panel dashboard-panel" id="add-reader-panel">
+                <div class="panel-heading"><div><p class="eyebrow">READERS</p><h2>Register reader</h2></div></div>
+                <form class="form" action="{{ url_for('add_reader') }}" method="post">
+                    <label>Name<input name="name" required></label><label>Email<input name="email" type="email"></label><label>Phone<input name="phone"></label><button class="button" type="submit">Add reader</button>
+                </form>
+            </div>
+            <div class="panel dashboard-panel" id="order-book-panel">
+                <div class="panel-heading"><div><p class="eyebrow">RESERVATIONS</p><h2>Place an order</h2></div></div>
+                <form class="form" action="{{ url_for('create_order') }}" method="post">
+                    <label>Reader<select name="reader_id" required>{% for reader in readers %}<option value="{{ reader.id }}">{{ reader.name }}</option>{% endfor %}</select></label>
+                    <label>Book<select name="book_id" required>{% for book in books %}<option value="{{ book.id }}">{{ book.title }}</option>{% endfor %}</select></label><button class="button" type="submit">Place order</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="panel readers-panel dashboard-panel" id="reader-list-panel">
+            <div class="panel-heading"><div><p class="eyebrow">DIRECTORY</p><h2>Reader list</h2></div></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Reader</th><th>Contact</th><th>Active loans</th><th>Status</th></tr></thead>
+                    <tbody>
+                    {% for reader in readers %}
+                        <tr>
+                            <td><strong>{{ reader.name }}</strong><small>Reader #{{ reader.id }} · Joined {{ reader.registration_date.strftime('%d %b %Y') }}</small></td>
+                            <td>{{ reader.email or 'No email' }}<small>{{ reader.phone or 'No phone' }}</small></td>
+                            <td>{{ library.get_reader_borrowings(reader.id)|length }} / 4</td>
+                            <td><span class="tag {{ 'tag-good' if reader.status.value == 'active' else 'tag-cancelled' }}">{{ reader.status.value }}</span></td>
+                        </tr>
+                    {% else %}<tr><td colspan="4" class="empty">No readers registered.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel orders-panel dashboard-panel" id="orders-panel">
+            <div class="panel-heading"><div><p class="eyebrow">QUEUE</p><h2>Orders</h2></div></div>
+            <div class="order-list">
+            {% for order in orders %}
+                <article class="order"><div><strong>{{ book_for(order.book_id).title }}</strong><span>{{ reader_for(order.reader_id).name }} · {{ order.order_date.strftime('%d %b %Y') }}</span></div><div><span class="tag tag-{{ order.status.value }}">{{ order.status.value }}</span>{% if order.status.value == 'pending' %}<form action="{{ url_for('cancel_order', order_id=order.id) }}" method="post"><button class="text-button" type="submit">Cancel</button></form>{% endif %}</div></article>
+            {% else %}<p class="empty">No orders yet.</p>{% endfor %}
+            </div>
+        </section>
+    </main>
+    <script>
+        document.querySelectorAll('[data-toggle]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const panel = document.getElementById(button.dataset.toggle);
+                if (panel) {
+                    panel.classList.toggle('is-open');
+                    button.classList.toggle('is-active', panel.classList.contains('is-open'));
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+@startuml Library_Sequence_Borrow
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Sequence Diagram - Borrow a Book
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Copy
+entity Borrowing
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : Select available copy
+UI -> Library : borrow(reader_id, copy_id, order_id?)
+activate Library
+Library -> DB : Load Reader, Copy, and Book
+DB --> Library : Current records
+Library -> Borrowing : Check active borrowings
+Borrowing -> DB : Count active borrowings
+DB --> Library : Active borrowing count
+
+alt Reader inactive
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Four active borrowings reached
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Copy unavailable
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Valid borrowing
+    Library -> Copy : Set status to BORROWED
+    Library -> Book : Decrement available_copies
+    Library -> Borrowing : Create active borrowing
+    Borrowing -> DB : INSERT active borrowing
+    opt Borrowing fulfils an order
+        Library -> Order : Set status to FULFILLED
+        Order -> DB : Clear reservation fields
+    end
+    DB --> Library : Transaction committed
+    Library --> UI : Borrowing created
+    deactivate Library
+    UI --> Reader : Display success
+end
+@enduml

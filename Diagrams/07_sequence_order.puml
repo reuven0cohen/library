@@ -1,0 +1,40 @@
+@startuml Library_Sequence_Order
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Sequence Diagram - Order a Book
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Book
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : Select book and request order
+UI -> Library : create_order(reader_id, book_id)
+activate Library
+Library -> DB : Load Reader and Book
+DB --> Library : Reader and book records
+
+alt Reader is inactive
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Book does not exist
+    Library --> UI : NotFoundError
+    UI --> Reader : Display error
+else Pending order already exists
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Valid order
+    Library -> Book : Verify book exists
+    Library -> Order : Create pending order
+    Order -> DB : INSERT pending order
+    DB --> Order : New order id
+    Order --> Library : Order
+    deactivate Library
+    Library --> UI : Order created
+    UI --> Reader : Display success
+end
+@enduml

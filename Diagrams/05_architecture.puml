@@ -1,0 +1,85 @@
+@startuml Library_Architecture
+left to right direction
+skinparam backgroundColor #fafafa
+skinparam componentStyle uml2
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+actor "Reader / Librarian" as User
+
+package "Presentation Layer" {
+    component "Web Browser" as Browser
+    component "HTML Templates" as Templates
+  component "CSS and Dashboard JavaScript" as Styles
+}
+
+package "Flask Web Layer" {
+  component "app.py\nFlask Application" as FlaskApp
+  component "Authentication and Session" as Auth
+  component "Dashboard and Form Routes" as Routes
+}
+
+package "Domain Layer" {
+  component "library.py\nDomain Entities and Enums" as Domain
+  component "sqlite_library.py\nSQLite Library Repository" as Repository
+  component "Borrowing and Return Rules" as Borrowing
+  component "Order and Reservation Rules" as Orders
+}
+
+package "SQLite Data Store" {
+  database "library.db" as SQLite
+  component "users (in-memory credentials)" as Users
+  component "readers" as Readers
+  component "books" as Books
+  component "copies" as Copies
+  component "borrowings" as Borrowings
+  component "orders" as OrdersData
+}
+
+User --> Browser
+Browser --> FlaskApp : HTTP
+FlaskApp --> Auth
+FlaskApp --> Routes
+FlaskApp --> Templates : render HTML
+Templates --> Styles
+
+Routes --> Auth : login_required
+Auth --> Users
+Routes --> Repository
+Repository --> Domain
+Repository --> Borrowing
+Repository --> Orders
+Repository --> SQLite : SQL queries and transactions
+
+SQLite --> Readers
+SQLite --> Books
+SQLite --> Copies
+SQLite --> Borrowings
+SQLite --> OrdersData
+
+Borrowing --> Readers
+Borrowing --> Books
+Borrowing --> Copies
+Borrowing --> Borrowings
+Orders --> Readers
+Orders --> Books
+Orders --> Copies
+Orders --> OrdersData
+
+note right of FlaskApp
+  Single Flask process
+  Development server
+end note
+
+note right of Orders
+  Reservation expiry is processed
+  by the maintenance route
+  /maintenance/expire
+end note
+
+note bottom of SQLite
+  Schema is created automatically
+  when Library is initialized.
+end note
+
+@enduml

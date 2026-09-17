@@ -1,0 +1,57 @@
+@startuml Library_Sequence_Return
+skinparam backgroundColor #fafafa
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Sequence Diagram - Return a Book
+
+actor Reader
+boundary "Library Web UI" as UI
+control Library
+entity Borrowing
+entity Copy
+entity Book
+entity Order
+database SQLiteDatabase as DB
+
+Reader -> UI : Click Return on active loan
+UI -> Library : return_book(borrowing_id)
+activate Library
+Library -> Borrowing : Load active borrowing
+Borrowing -> DB : Read borrowing record
+Library -> Copy : Load borrowed copy
+Copy -> DB : Read copy record
+DB --> Library : Borrowing and copy records
+
+alt Borrowing not found
+    Library --> UI : NotFoundError
+    UI --> Reader : Display error
+else Borrowing already returned
+    Library --> UI : ValidationError
+    UI --> Reader : Display error
+else Pending order exists for book
+    Library -> Order : Find oldest pending order
+    Order -> DB : Read pending order
+    Library -> Copy : Set status to RESERVED
+    Copy -> DB : Update copy status
+    Library -> Order : Attach copy and set expiry
+    Order -> DB : Update reservation fields
+    Library -> Borrowing : Mark status RETURNED
+    Borrowing -> DB : Update return_date
+    DB --> Library : Transaction committed
+    Library --> UI : Returned borrowing
+    UI --> Reader : Display success
+else No pending order
+    Library -> Copy : Set status to AVAILABLE
+    Copy -> DB : Update copy status
+    Library -> Book : Increment available_copies
+    Book -> DB : Update availability
+    Library -> Borrowing : Mark status RETURNED
+    Borrowing -> DB : Update return_date
+    DB --> Library : Transaction committed
+    Library --> UI : Returned borrowing
+    UI --> Reader : Display success
+end
+
+deactivate Library
+@enduml
